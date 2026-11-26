@@ -1,0 +1,36 @@
+name: Build ChestsAnywhere (Android UI)
+
+on:
+  push:
+    branches:
+      - android-ui-fixes
+      - develop
+  pull_request:
+    branches:
+      - develop
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fetch code
+        uses: actions/checkout@v4
+        with:
+          fetch-tags: false
+
+      - name: Add build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Set pre-release version suffix
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/set-prerelease-versions@v1
+
+      - name: Build ChestsAnywhere
+        run: dotnet build ChestsAnywhere/ChestsAnywhere.csproj --configuration Release
+
+      - name: Upload mod zip
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/upload-release-artifacts@v1
+        with:
+          create_attestations: false
+          create_combined_zip: ""

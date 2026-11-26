@@ -145,9 +145,11 @@ internal abstract class BaseOverlay : IDisposable
         if (Game1.options.hardwareCursor)
             return;
 
-        Vector2 cursorPos = new Vector2(Game1.getMouseX(), Game1.getMouseY());
+        // On Android the game uses touch input; drawing the PC cursor over the UI is confusing.
         if (Constants.TargetPlatform == GamePlatform.Android)
-            cursorPos *= Game1.options.zoomLevel / this.Reflection.GetProperty<float>(typeof(Game1), "NativeZoomLevel").GetValue();
+            return;
+
+        Vector2 cursorPos = new Vector2(Game1.getMouseX(), Game1.getMouseY());
 
         Game1.spriteBatch.Draw(Game1.mouseCursors, cursorPos, Game1.getSourceRectForStandardTileSheet(Game1.mouseCursors, Game1.options.SnappyMenus ? 44 : 0, 16, 16), Color.White * Game1.mouseCursorTransparency, 0.0f, Vector2.Zero, Game1.pixelZoom + Game1.dialogueButtonScale / 150f, SpriteEffects.None, 1f);
     }

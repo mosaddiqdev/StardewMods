@@ -623,9 +623,21 @@ internal abstract class BaseChestOverlay : BaseOverlay, IStorageOverlay
         {
             this.CategoryDropdown = new Dropdown<string>(bounds.Right - Game1.tileSize, bounds.Y, this.Font, this.SelectedCategory, this.Categories, category => category, maxDropdownLabelWidth);
 
-            if (Constants.TargetPlatform != GamePlatform.Android)
+            if (Constants.TargetPlatform == GamePlatform.Android)
+            {
+                // On Android the dropdown sits inside the menu top-right area. The game's close
+                // (OK) button lives just outside bounds.Right, so we pull the dropdown 2 tile-widths
+                // inward to avoid the overlap. It opens downward, so Y starts just inside the menu.
+                int androidMargin = Game1.tileSize * 2;
+                this.CategoryDropdown.bounds.X = bounds.Right - this.CategoryDropdown.bounds.Width - androidMargin;
+                this.CategoryDropdown.bounds.Y = bounds.Y + Game1.tileSize / 2;
+            }
+            else
+            {
                 this.CategoryDropdown.bounds.Y = bounds.Y - this.CategoryDropdown.bounds.Height + topOffset;
-            this.CategoryDropdown.bounds.X -= this.CategoryDropdown.bounds.Width; // right-align
+                this.CategoryDropdown.bounds.X -= this.CategoryDropdown.bounds.Width; // right-align
+            }
+
             this.CategoryDropdown.ReinitializeComponents();
         }
 
@@ -638,7 +650,13 @@ internal abstract class BaseChestOverlay : BaseOverlay, IStorageOverlay
                 ManagedChest? selected = ChestFactory.GetBestMatch(chests, this.Chest);
                 this.ChestDropdown = new Dropdown<ManagedChest>(bounds.X, bounds.Y, this.Font, selected, chests, chest => chest.DisplayName, maxDropdownLabelWidth);
 
-                if (Constants.TargetPlatform != GamePlatform.Android)
+                if (Constants.TargetPlatform == GamePlatform.Android)
+                {
+                    // On Android open downward from just inside the top of the menu.
+                    this.ChestDropdown.bounds.Y = bounds.Y + Game1.tileSize / 2;
+                    this.ChestDropdown.ReinitializeComponents();
+                }
+                else
                 {
                     this.ChestDropdown.bounds.Y = bounds.Y - this.ChestDropdown.bounds.Height + topOffset;
                     this.ChestDropdown.ReinitializeComponents();
