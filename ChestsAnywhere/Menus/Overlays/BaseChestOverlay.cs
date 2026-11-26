@@ -252,145 +252,74 @@ internal abstract class BaseChestOverlay : BaseOverlay, IStorageOverlay
             int padding = Game1.pixelZoom * 10;
             float topOffset = padding;
             int maxLabelWidth = (int)new[] { locationLabel, nameLabel, categoryLabel, orderLabel }.Select(p => font.MeasureString(p).X).Max();
-            bool isAndroid = Constants.TargetPlatform == GamePlatform.Android;
-            int lineHeight = (int)font.MeasureString("X").Y;
 
             // background
             batch.DrawMenuBackground(new Rectangle(bounds.X, bounds.Y, bounds.Width, bounds.Height));
 
-            if (isAndroid)
+            // Location name
             {
-                // ── Android: stacked layout ──────────────────────────────────────────
-                // Each field gets its own full-width row: label line then textbox line.
-                // This avoids the cramped side-by-side PC layout on narrow screens.
-                int fieldWidth = bounds.Width - padding * 2;
-                int rowGap = (int)(lineHeight * 0.5f); // breathing room between fields
+                string locationName = this.Chest.Location.Name;
+                if (this.Chest.Tile != Vector2.Zero)
+                    locationName += " (" + I18n.Label_Location_Tile(x: this.Chest.Tile.X, y: this.Chest.Tile.Y) + ")";
 
-                // Location (read-only, single line)
-                {
-                    string locationName = this.Chest.Location.Name;
-                    if (this.Chest.Tile != Vector2.Zero)
-                        locationName += " (" + I18n.Label_Location_Tile(x: this.Chest.Tile.X, y: this.Chest.Tile.Y) + ")";
-                    batch.DrawTextBlock(font, locationLabel, new Vector2(bounds.X + padding, bounds.Y + topOffset), bounds.Width);
-                    topOffset += lineHeight;
-                    batch.DrawTextBlock(font, locationName, new Vector2(bounds.X + padding, bounds.Y + topOffset), bounds.Width);
-                    topOffset += lineHeight + rowGap;
-                }
-
-                // Name / Category / Order — stacked label + textbox
-                var fields = new[] {
-                    Tuple.Create(nameLabel,     this.EditNameField),
-                    Tuple.Create(categoryLabel, this.EditCategoryField),
-                    Tuple.Create(orderLabel,    this.EditOrderField)
-                };
-                foreach (var field in fields)
-                {
-                    string label   = field.Item1;
-                    ValidatedTextBox textbox = field.Item2;
-
-                    // Label line
-                    batch.DrawTextBlock(font, label, new Vector2(bounds.X + padding, bounds.Y + topOffset), bounds.Width);
-                    topOffset += lineHeight;
-
-                    // Textbox — full width for name/category, narrower for order
-                    bool isOrder = ReferenceEquals(textbox, this.EditOrderField);
-                    textbox.Width = isOrder ? Math.Min(fieldWidth, Game1.tileSize * 3) : fieldWidth;
-                    textbox.X = bounds.X + padding;
-                    textbox.Y = bounds.Y + (int)topOffset;
-                    textbox.Draw(batch);
-                    topOffset += textbox.Height + rowGap;
-                }
-
-                // Hide-chest checkbox — bigger tap target
-                this.EditHideChestField.Width = Game1.pixelZoom * 7;
-                topOffset += rowGap / 2;
-                topOffset += this.DrawAndPositionCheckbox(batch, font, this.EditHideChestField, bounds.X + padding, bounds.Y + (int)topOffset, this.EditHideChestField.Value ? I18n.Label_HideChestHidden() : I18n.Label_HideChest()).Y;
-                topOffset += rowGap;
-
-                // Automate + Save/Reset buttons
-                void DrawButtonsAndroid(int yOffset)
-                {
-                    this.DrawButton(batch, font, this.EditSaveButtonArea,  bounds.X + padding,                         bounds.Y + (int)topOffset + yOffset, I18n.Button_Save(),  Color.DarkGreen, out Rectangle saveBounds);
-                    this.DrawButton(batch, font, this.EditResetButtonArea, bounds.X + padding + saveBounds.Width + 8,  bounds.Y + (int)topOffset + yOffset, I18n.Button_Reset(), Color.DarkRed,   out _);
-                }
-
-                if (this.EditAutomateStore != null || this.EditAutomateTake != null)
-                {
-                    int storageH = this.EditAutomateStore?.Bounds.Height ?? 0;
-                    int fetchH   = this.EditAutomateTake?.Bounds.Height ?? 0;
-
-                    topOffset += padding / 2;
-                    topOffset += batch.DrawTextBlock(font, I18n.Label_AutomateOptions(), new Vector2(bounds.X + padding, bounds.Y + topOffset), wrapWidth: bounds.Width - padding, bold: true).Y;
-
-                    DrawButtonsAndroid(yOffset: storageH + fetchH + padding / 2);
-
-                    this.EditAutomateTake?.Draw(batch, bounds.X + padding, bounds.Y + (int)topOffset + storageH);
-                    this.EditAutomateStore?.Draw(batch, bounds.X + padding, bounds.Y + (int)topOffset);
-                }
-                else
-                    DrawButtonsAndroid(yOffset: 0);
+                Vector2 labelSize = batch.DrawTextBlock(font, locationLabel, new Vector2(bounds.X + padding + (int)(maxLabelWidth - font.MeasureString(locationLabel).X), bounds.Y + topOffset), bounds.Width);
+                batch.DrawTextBlock(font, locationName, new Vector2(bounds.X + padding + maxLabelWidth + gutter, bounds.Y + topOffset), bounds.Width);
+                topOffset += labelSize.Y;
             }
-            else
+
+            // editable text fields
+            var fields = new[] { Tuple.Create(nameLabel, this.EditNameField), Tuple.Create(categoryLabel, this.EditCategoryField), Tuple.Create(orderLabel, this.EditOrderField) };
+            foreach (var field in fields)
             {
-                // ── PC: original side-by-side layout ────────────────────────────────
+                // get data
+                string label = field.Item1;
+                ValidatedTextBox textbox = field.Item2;
 
-                // Location name
-                {
-                    string locationName = this.Chest.Location.Name;
-                    if (this.Chest.Tile != Vector2.Zero)
-                        locationName += " (" + I18n.Label_Location_Tile(x: this.Chest.Tile.X, y: this.Chest.Tile.Y) + ")";
+                // draw label
+                Vector2 labelSize = batch.DrawTextBlock(font, label, new Vector2(bounds.X + padding + (int)(maxLabelWidth - font.MeasureString(label).X), bounds.Y + topOffset + 7), bounds.Width);
+                textbox.X = bounds.X + padding + maxLabelWidth + gutter;
+                textbox.Y = bounds.Y + (int)topOffset;
+                textbox.Draw(batch);
 
-                    Vector2 labelSize = batch.DrawTextBlock(font, locationLabel, new Vector2(bounds.X + padding + (int)(maxLabelWidth - font.MeasureString(locationLabel).X), bounds.Y + topOffset), bounds.Width);
-                    batch.DrawTextBlock(font, locationName, new Vector2(bounds.X + padding + maxLabelWidth + gutter, bounds.Y + topOffset), bounds.Width);
-                    topOffset += labelSize.Y;
-                }
+                // update offset
+                topOffset += Math.Max(labelSize.Y + 7, textbox.Height);
+            }
 
-                // editable text fields
-                var fields = new[] { Tuple.Create(nameLabel, this.EditNameField), Tuple.Create(categoryLabel, this.EditCategoryField), Tuple.Create(orderLabel, this.EditOrderField) };
-                foreach (var field in fields)
-                {
-                    string label = field.Item1;
-                    ValidatedTextBox textbox = field.Item2;
+            // checkboxes
+            topOffset += this.DrawAndPositionCheckbox(batch, font, this.EditHideChestField, bounds.X + padding, bounds.Y + (int)topOffset, this.EditHideChestField.Value ? I18n.Label_HideChestHidden() : I18n.Label_HideChest()).Y;
 
-                    Vector2 labelSize = batch.DrawTextBlock(font, label, new Vector2(bounds.X + padding + (int)(maxLabelWidth - font.MeasureString(label).X), bounds.Y + topOffset + 7), bounds.Width);
-                    textbox.X = bounds.X + padding + maxLabelWidth + gutter;
-                    textbox.Y = bounds.Y + (int)topOffset;
-                    textbox.Draw(batch);
+            // buttons
+            void DrawButtons(int yOffset)
+            {
+                this.DrawButton(batch, Game1.smallFont, this.EditSaveButtonArea, bounds.X + padding, bounds.Y + (int)topOffset + yOffset, I18n.Button_Save(), Color.DarkGreen, out Rectangle saveButtonBounds);
+                this.DrawButton(batch, Game1.smallFont, this.EditResetButtonArea, bounds.X + padding + saveButtonBounds.Width + 2, bounds.Y + (int)topOffset + yOffset, I18n.Button_Reset(), Color.DarkRed, out _);
+            }
 
-                    topOffset += Math.Max(labelSize.Y + 7, textbox.Height);
-                }
+            // Automate options
+            // note: must be drawn in reverse order (including the buttons), so dropdowns overlay the elements below them
+            if (this.EditAutomateStore != null || this.EditAutomateTake != null)
+            {
+                int storageDropdownHeight = this.EditAutomateStore?.Bounds.Height ?? 0;
+                int fetchDropdownHeight = this.EditAutomateTake?.Bounds.Height ?? 0;
 
-                // checkboxes
-                topOffset += this.DrawAndPositionCheckbox(batch, font, this.EditHideChestField, bounds.X + padding, bounds.Y + (int)topOffset, this.EditHideChestField.Value ? I18n.Label_HideChestHidden() : I18n.Label_HideChest()).Y;
+                // label
+                topOffset += padding;
+                topOffset += batch.DrawTextBlock(Game1.smallFont, I18n.Label_AutomateOptions(), new Vector2(bounds.X + padding, bounds.Y + topOffset), wrapWidth: bounds.Width - bounds.X - padding, bold: true).Y;
 
                 // buttons
-                void DrawButtons(int yOffset)
-                {
-                    this.DrawButton(batch, Game1.smallFont, this.EditSaveButtonArea, bounds.X + padding, bounds.Y + (int)topOffset + yOffset, I18n.Button_Save(), Color.DarkGreen, out Rectangle saveButtonBounds);
-                    this.DrawButton(batch, Game1.smallFont, this.EditResetButtonArea, bounds.X + padding + saveButtonBounds.Width + 2, bounds.Y + (int)topOffset + yOffset, I18n.Button_Reset(), Color.DarkRed, out _);
-                }
+                DrawButtons(yOffset: storageDropdownHeight + fetchDropdownHeight + padding);
 
-                // Automate options (drawn in reverse so dropdowns overlay elements below them)
-                if (this.EditAutomateStore != null || this.EditAutomateTake != null)
-                {
-                    int storageDropdownHeight = this.EditAutomateStore?.Bounds.Height ?? 0;
-                    int fetchDropdownHeight   = this.EditAutomateTake?.Bounds.Height ?? 0;
+                // dropdowns
+                this.EditAutomateTake?.Draw(batch, bounds.X + padding, bounds.Y + (int)topOffset + storageDropdownHeight);
+                this.EditAutomateStore?.Draw(batch, bounds.X + padding, bounds.Y + (int)topOffset);
+            }
+            else
+                DrawButtons(yOffset: 0);
 
-                    topOffset += padding;
-                    topOffset += batch.DrawTextBlock(Game1.smallFont, I18n.Label_AutomateOptions(), new Vector2(bounds.X + padding, bounds.Y + topOffset), wrapWidth: bounds.Width - bounds.X - padding, bold: true).Y;
 
-                    DrawButtons(yOffset: storageDropdownHeight + fetchDropdownHeight + padding);
-
-                    this.EditAutomateTake?.Draw(batch, bounds.X + padding, bounds.Y + (int)topOffset + storageDropdownHeight);
-                    this.EditAutomateStore?.Draw(batch, bounds.X + padding, bounds.Y + (int)topOffset);
-                }
-                else
-                    DrawButtons(yOffset: 0);
-            } // end PC layout
-
-            // exit button (drawn for both layouts)
+            // exit button
             this.EditExitButton.draw(batch);
-        } // end edit mode
+        }
 
         // cursor
         this.DrawCursor();
@@ -453,12 +382,6 @@ internal abstract class BaseChestOverlay : BaseOverlay, IStorageOverlay
             case Element.EditForm:
                 if (this.EscapeKeybind.JustPressed())
                     this.ActiveElement = Element.Menu;
-
-                // On Android, text input arrives via the system IME (opened by Game1.showTextEntry),
-                // not as SMAPI key events. Suppressing all keys here would swallow IME-routed input
-                // and break the on-screen keyboard. Skip suppression on Android entirely.
-                if (Constants.TargetPlatform == GamePlatform.Android)
-                    break;
 
                 // always suppress in this context, since we'll handle text input ourselves
                 if (e.Pressed.Any())
@@ -526,11 +449,7 @@ internal abstract class BaseChestOverlay : BaseOverlay, IStorageOverlay
                 return true;
 
             case Element.EditForm:
-                // On Android touch scrolling should work inside the edit form dropdowns.
-                // Let the event fall through rather than suppressing it.
-                if (Constants.TargetPlatform == GamePlatform.Android)
-                    return false;
-                return true; // suppress scroll on PC while edit form is open
+                return true; // suppress input
 
             default:
                 return false;
@@ -704,20 +623,9 @@ internal abstract class BaseChestOverlay : BaseOverlay, IStorageOverlay
         {
             this.CategoryDropdown = new Dropdown<string>(bounds.Right - Game1.tileSize, bounds.Y, this.Font, this.SelectedCategory, this.Categories, category => category, maxDropdownLabelWidth);
 
-            if (Constants.TargetPlatform == GamePlatform.Android)
-            {
-                // On Android: flush with the top of the menu, pulled left so it clears the
-                // game's close (X) button which sits just outside bounds.Right.
-                int androidMargin = Game1.tileSize * 2;
-                this.CategoryDropdown.bounds.X = bounds.Right - this.CategoryDropdown.bounds.Width - androidMargin;
-                this.CategoryDropdown.bounds.Y = bounds.Y; // flush with top
-            }
-            else
-            {
+            if (Constants.TargetPlatform != GamePlatform.Android)
                 this.CategoryDropdown.bounds.Y = bounds.Y - this.CategoryDropdown.bounds.Height + topOffset;
-                this.CategoryDropdown.bounds.X -= this.CategoryDropdown.bounds.Width; // right-align
-            }
-
+            this.CategoryDropdown.bounds.X -= this.CategoryDropdown.bounds.Width; // right-align
             this.CategoryDropdown.ReinitializeComponents();
         }
 
@@ -730,13 +638,7 @@ internal abstract class BaseChestOverlay : BaseOverlay, IStorageOverlay
                 ManagedChest? selected = ChestFactory.GetBestMatch(chests, this.Chest);
                 this.ChestDropdown = new Dropdown<ManagedChest>(bounds.X, bounds.Y, this.Font, selected, chests, chest => chest.DisplayName, maxDropdownLabelWidth);
 
-                if (Constants.TargetPlatform == GamePlatform.Android)
-                {
-                    // On Android: flush with the top of the menu, left-aligned to bounds.X.
-                    this.ChestDropdown.bounds.Y = bounds.Y; // flush with top
-                    this.ChestDropdown.ReinitializeComponents();
-                }
-                else
+                if (Constants.TargetPlatform != GamePlatform.Android)
                 {
                     this.ChestDropdown.bounds.Y = bounds.Y - this.ChestDropdown.bounds.Height + topOffset;
                     this.ChestDropdown.ReinitializeComponents();
@@ -748,39 +650,20 @@ internal abstract class BaseChestOverlay : BaseOverlay, IStorageOverlay
         {
             Rectangle sprite = CommonSprites.Icons.SpeechBubble;
             float zoom = Game1.pixelZoom / 2f;
-            int buttonWidth = (int)(sprite.Width * zoom);
-            int buttonHeight = (int)(sprite.Height * zoom);
 
-            Point iconPos;
-            if (this.ChestDropdown != null)
-            {
-                if (Constants.TargetPlatform == GamePlatform.Android)
-                {
-                    // On Android: place the edit button to the right of the chest dropdown,
-                    // vertically centred to the dropdown header height so it sits in the same row.
-                    int dropdownMidY = this.ChestDropdown.bounds.Y + (this.ChestDropdown.bounds.Height - buttonHeight) / 2;
-                    iconPos = new Point(
-                        this.ChestDropdown.bounds.X + this.ChestDropdown.bounds.Width,
-                        dropdownMidY
-                    );
-                }
-                else
-                    iconPos = new Point(this.ChestDropdown.bounds.X + this.ChestDropdown.bounds.Width, this.ChestDropdown.bounds.Y);
-            }
-            else
-                iconPos = new Point(0, bounds.Y + topOffset);
+            Point iconPos = this.ChestDropdown != null
+                ? new Point(this.ChestDropdown.bounds.X + this.ChestDropdown.bounds.Width, this.ChestDropdown.bounds.Y)
+                : new Point(0, bounds.Y + topOffset);
 
-            Rectangle buttonBounds = new Rectangle(iconPos.X, iconPos.Y, buttonWidth, buttonHeight);
+            Rectangle buttonBounds = new Rectangle(iconPos.X, iconPos.Y, (int)(sprite.Width * zoom), (int)(sprite.Height * zoom));
             this.EditButton = new ClickableTextureComponent("edit-chest", buttonBounds, null, I18n.Button_EditChest(), CommonSprites.Icons.Sheet, sprite, zoom);
         }
 
         // edit form
         int longTextWidth = (int)Game1.smallFont.MeasureString("A sufficiently, reasonably long string").X;
-        int orderFieldWidth = (int)Game1.smallFont.MeasureString("9999999").X;
-        // Note: on Android, field widths are recalculated at draw time for the stacked layout.
         this.EditNameField = new ValidatedTextBox(Game1.smallFont, Color.Black, ch => ch != '|') { Width = longTextWidth };
         this.EditCategoryField = new ValidatedTextBox(Game1.smallFont, Color.Black, ch => ch != '|') { Width = longTextWidth };
-        this.EditOrderField = new ValidatedTextBox(Game1.smallFont, Color.Black, char.IsDigit) { Width = orderFieldWidth };
+        this.EditOrderField = new ValidatedTextBox(Game1.smallFont, Color.Black, char.IsDigit) { Width = (int)Game1.smallFont.MeasureString("9999999").X };
         this.EditHideChestField = new Checkbox();
 
         if (this.ShowAutomateOptions && this.Chest.CanConfigureAutomateStore)
@@ -815,17 +698,7 @@ internal abstract class BaseChestOverlay : BaseOverlay, IStorageOverlay
 
         this.EditSaveButtonArea = new ClickableComponent(new Rectangle(0, 0, Game1.tileSize, Game1.tileSize), "save-chest");
         this.EditResetButtonArea = new ClickableComponent(new Rectangle(0, 0, Game1.tileSize, Game1.tileSize), "reset-chest");
-
-        // The exit button is normally just above the menu top-right corner.
-        // On Android the form is drawn inside the menu bounds, so keep it inside.
-        int exitButtonX = bounds.Right - 9 * Game1.pixelZoom;
-        int exitButtonY = Constants.TargetPlatform == GamePlatform.Android
-            ? bounds.Y + Game1.pixelZoom
-            : bounds.Y - Game1.pixelZoom * 2;
-        this.EditExitButton = new ClickableTextureComponent(
-            new Rectangle(exitButtonX, exitButtonY, CommonSprites.Icons.ExitButton.Width * Game1.pixelZoom, CommonSprites.Icons.ExitButton.Height * Game1.pixelZoom),
-            CommonSprites.Icons.Sheet, CommonSprites.Icons.ExitButton, Game1.pixelZoom
-        );
+        this.EditExitButton = new ClickableTextureComponent(new Rectangle(bounds.Right - 9 * Game1.pixelZoom, bounds.Y - Game1.pixelZoom * 2, CommonSprites.Icons.ExitButton.Width * Game1.pixelZoom, CommonSprites.Icons.ExitButton.Height * Game1.pixelZoom), CommonSprites.Icons.Sheet, CommonSprites.Icons.ExitButton, Game1.pixelZoom);
     }
 
     /// <summary>Initialize the edit-chest overlay for rendering.</summary>

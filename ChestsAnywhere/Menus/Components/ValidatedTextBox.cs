@@ -3,7 +3,6 @@ using System.Text;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using StardewModdingAPI;
 using StardewValley;
 using StardewValley.Menus;
 
@@ -88,11 +87,6 @@ internal class ValidatedTextBox : IKeyboardSubscriber
     {
         this.Textbox.Selected = true;
         Game1.keyboardDispatcher.Subscriber = this;
-
-        // On Android there is no hardware keyboard — we must explicitly open the
-        // on-screen keyboard the same way the game does it for its own text fields.
-        if (Constants.TargetPlatform == GamePlatform.Android)
-            Game1.showTextEntry(this.Textbox);
     }
 
     /// <summary>Receive input from the user.</summary>

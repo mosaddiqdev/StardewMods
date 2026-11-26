@@ -145,11 +145,9 @@ internal abstract class BaseOverlay : IDisposable
         if (Game1.options.hardwareCursor)
             return;
 
-        // On Android the game uses touch input; drawing the PC cursor over the UI is confusing.
-        if (Constants.TargetPlatform == GamePlatform.Android)
-            return;
-
         Vector2 cursorPos = new Vector2(Game1.getMouseX(), Game1.getMouseY());
+        if (Constants.TargetPlatform == GamePlatform.Android)
+            cursorPos *= Game1.options.zoomLevel / this.Reflection.GetProperty<float>(typeof(Game1), "NativeZoomLevel").GetValue();
 
         Game1.spriteBatch.Draw(Game1.mouseCursors, cursorPos, Game1.getSourceRectForStandardTileSheet(Game1.mouseCursors, Game1.options.SnappyMenus ? 44 : 0, 16, 16), Color.White * Game1.mouseCursorTransparency, 0.0f, Vector2.Zero, Game1.pixelZoom + Game1.dialogueButtonScale / 150f, SpriteEffects.None, 1f);
     }
@@ -226,13 +224,14 @@ internal abstract class BaseOverlay : IDisposable
             return;
 
         bool uiMode = this.AssumeUiMode ?? Game1.uiMode;
-        // On Android, touch events arrive as raw screen-space coordinates. SMAPI maps them to
-        // virtual mouse coordinates, but we must request UI-mode coords (uiMode: true) to get
-        // values that align with the UI layout coordinates used when drawing menus.
-        // The old NativeZoomLevel formula was used to compensate for the cursor *sprite* position
-        // (now removed), not for hit-testing — using it here caused every click to land in the
-        // wrong place relative to the drawn controls.
-        bool handled = this.ReceiveLeftClick(Game1.getMouseX(uiMode), Game1.getMouseY(uiMode));
+        bool handled;
+        if (Constants.TargetPlatform == GamePlatform.Android)
+        {
+            float nativeZoomLevel = this.Reflection.GetProperty<float>(typeof(Game1), "NativeZoomLevel").GetValue();
+            handled = this.ReceiveLeftClick((int)(Game1.getMouseX() * Game1.options.zoomLevel / nativeZoomLevel), (int)(Game1.getMouseY() * Game1.options.zoomLevel / nativeZoomLevel));
+        }
+        else
+            handled = this.ReceiveLeftClick(Game1.getMouseX(uiMode), Game1.getMouseY(uiMode));
 
         if (handled)
             this.InputHelper.Suppress(e.Button);
