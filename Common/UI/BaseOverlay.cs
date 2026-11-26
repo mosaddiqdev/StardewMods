@@ -226,14 +226,13 @@ internal abstract class BaseOverlay : IDisposable
             return;
 
         bool uiMode = this.AssumeUiMode ?? Game1.uiMode;
-        bool handled;
-        if (Constants.TargetPlatform == GamePlatform.Android)
-        {
-            float nativeZoomLevel = this.Reflection.GetProperty<float>(typeof(Game1), "NativeZoomLevel").GetValue();
-            handled = this.ReceiveLeftClick((int)(Game1.getMouseX() * Game1.options.zoomLevel / nativeZoomLevel), (int)(Game1.getMouseY() * Game1.options.zoomLevel / nativeZoomLevel));
-        }
-        else
-            handled = this.ReceiveLeftClick(Game1.getMouseX(uiMode), Game1.getMouseY(uiMode));
+        // On Android, touch events arrive as raw screen-space coordinates. SMAPI maps them to
+        // virtual mouse coordinates, but we must request UI-mode coords (uiMode: true) to get
+        // values that align with the UI layout coordinates used when drawing menus.
+        // The old NativeZoomLevel formula was used to compensate for the cursor *sprite* position
+        // (now removed), not for hit-testing — using it here caused every click to land in the
+        // wrong place relative to the drawn controls.
+        bool handled = this.ReceiveLeftClick(Game1.getMouseX(uiMode), Game1.getMouseY(uiMode));
 
         if (handled)
             this.InputHelper.Suppress(e.Button);

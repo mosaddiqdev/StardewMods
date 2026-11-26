@@ -252,6 +252,10 @@ internal abstract class BaseChestOverlay : BaseOverlay, IStorageOverlay
             int padding = Game1.pixelZoom * 10;
             float topOffset = padding;
             int maxLabelWidth = (int)new[] { locationLabel, nameLabel, categoryLabel, orderLabel }.Select(p => font.MeasureString(p).X).Max();
+            bool isAndroid = Constants.TargetPlatform == GamePlatform.Android;
+            int rowSpacing = isAndroid
+                ? (int)(font.LineHeight * 1.6f)  // larger gaps between rows for touch
+                : (int)(font.LineHeight * 1.1f);
 
             // background
             batch.DrawMenuBackground(new Rectangle(bounds.X, bounds.Y, bounds.Width, bounds.Height));
@@ -281,11 +285,16 @@ internal abstract class BaseChestOverlay : BaseOverlay, IStorageOverlay
                 textbox.Y = bounds.Y + (int)topOffset;
                 textbox.Draw(batch);
 
-                // update offset
-                topOffset += Math.Max(labelSize.Y + 7, textbox.Height);
+                // update offset — use rowSpacing as minimum height so rows don't feel cramped on touch
+                topOffset += Math.Max(rowSpacing, Math.Max(labelSize.Y + 7, textbox.Height));
             }
 
-            // checkboxes
+            // checkboxes — give a larger tap target on Android
+            if (isAndroid)
+            {
+                this.EditHideChestField.Width = Game1.pixelZoom * 7; // ~56px: comfortable tap size
+                topOffset += padding / 2; // extra breathing room before the checkbox
+            }
             topOffset += this.DrawAndPositionCheckbox(batch, font, this.EditHideChestField, bounds.X + padding, bounds.Y + (int)topOffset, this.EditHideChestField.Value ? I18n.Label_HideChestHidden() : I18n.Label_HideChest()).Y;
 
             // buttons
@@ -668,20 +677,49 @@ internal abstract class BaseChestOverlay : BaseOverlay, IStorageOverlay
         {
             Rectangle sprite = CommonSprites.Icons.SpeechBubble;
             float zoom = Game1.pixelZoom / 2f;
+            int buttonWidth = (int)(sprite.Width * zoom);
+            int buttonHeight = (int)(sprite.Height * zoom);
 
-            Point iconPos = this.ChestDropdown != null
-                ? new Point(this.ChestDropdown.bounds.X + this.ChestDropdown.bounds.Width, this.ChestDropdown.bounds.Y)
-                : new Point(0, bounds.Y + topOffset);
+            Point iconPos;
+            if (this.ChestDropdown != null)
+            {
+                if (Constants.TargetPlatform == GamePlatform.Android)
+                {
+                    // On Android the chest dropdown opens downward inside the menu.
+                    // Place the edit button just below the collapsed dropdown header so it
+                    // doesn't sit on top of the dropdown label text.
+                    iconPos = new Point(
+                        this.ChestDropdown.bounds.X + this.ChestDropdown.bounds.Width,
+                        this.ChestDropdown.bounds.Y + this.ChestDropdown.bounds.Height
+                    );
+                }
+                else
+                    iconPos = new Point(this.ChestDropdown.bounds.X + this.ChestDropdown.bounds.Width, this.ChestDropdown.bounds.Y);
+            }
+            else
+                iconPos = new Point(0, bounds.Y + topOffset);
 
-            Rectangle buttonBounds = new Rectangle(iconPos.X, iconPos.Y, (int)(sprite.Width * zoom), (int)(sprite.Height * zoom));
+            Rectangle buttonBounds = new Rectangle(iconPos.X, iconPos.Y, buttonWidth, buttonHeight);
             this.EditButton = new ClickableTextureComponent("edit-chest", buttonBounds, null, I18n.Button_EditChest(), CommonSprites.Icons.Sheet, sprite, zoom);
         }
 
         // edit form
         int longTextWidth = (int)Game1.smallFont.MeasureString("A sufficiently, reasonably long string").X;
+        int orderFieldWidth = (int)Game1.smallFont.MeasureString("9999999").X;
+        if (Constants.TargetPlatform == GamePlatform.Android)
+        {
+            // On Android the menu is narrow; cap the fields so the Name/Category textboxes fit
+            // beside their labels inside the menu with padding, and give the order field a
+            // comfortable touch width.
+            int padding = Game1.pixelZoom * 10;
+            int maxLabelWidth = (int)Game1.smallFont.MeasureString("Category:").X; // longest of the form labels
+            int usableWidth = Math.Max(bounds.Width - padding * 2 - maxLabelWidth - 10, Game1.tileSize * 3);
+            longTextWidth = Math.Min(longTextWidth, usableWidth);
+            orderFieldWidth = Math.Max(orderFieldWidth, Game1.tileSize * 2);
+        }
         this.EditNameField = new ValidatedTextBox(Game1.smallFont, Color.Black, ch => ch != '|') { Width = longTextWidth };
         this.EditCategoryField = new ValidatedTextBox(Game1.smallFont, Color.Black, ch => ch != '|') { Width = longTextWidth };
-        this.EditOrderField = new ValidatedTextBox(Game1.smallFont, Color.Black, char.IsDigit) { Width = (int)Game1.smallFont.MeasureString("9999999").X };
+        this.EditOrderField = new ValidatedTextBox(Game1.smallFont, Color.Black, char.IsDigit) { Width = orderFieldWidth };
         this.EditHideChestField = new Checkbox();
 
         if (this.ShowAutomateOptions && this.Chest.CanConfigureAutomateStore)
@@ -716,7 +754,17 @@ internal abstract class BaseChestOverlay : BaseOverlay, IStorageOverlay
 
         this.EditSaveButtonArea = new ClickableComponent(new Rectangle(0, 0, Game1.tileSize, Game1.tileSize), "save-chest");
         this.EditResetButtonArea = new ClickableComponent(new Rectangle(0, 0, Game1.tileSize, Game1.tileSize), "reset-chest");
-        this.EditExitButton = new ClickableTextureComponent(new Rectangle(bounds.Right - 9 * Game1.pixelZoom, bounds.Y - Game1.pixelZoom * 2, CommonSprites.Icons.ExitButton.Width * Game1.pixelZoom, CommonSprites.Icons.ExitButton.Height * Game1.pixelZoom), CommonSprites.Icons.Sheet, CommonSprites.Icons.ExitButton, Game1.pixelZoom);
+
+        // The exit button is normally just above the menu top-right corner.
+        // On Android the form is drawn inside the menu bounds, so keep it inside.
+        int exitButtonX = bounds.Right - 9 * Game1.pixelZoom;
+        int exitButtonY = Constants.TargetPlatform == GamePlatform.Android
+            ? bounds.Y + Game1.pixelZoom
+            : bounds.Y - Game1.pixelZoom * 2;
+        this.EditExitButton = new ClickableTextureComponent(
+            new Rectangle(exitButtonX, exitButtonY, CommonSprites.Icons.ExitButton.Width * Game1.pixelZoom, CommonSprites.Icons.ExitButton.Height * Game1.pixelZoom),
+            CommonSprites.Icons.Sheet, CommonSprites.Icons.ExitButton, Game1.pixelZoom
+        );
     }
 
     /// <summary>Initialize the edit-chest overlay for rendering.</summary>
