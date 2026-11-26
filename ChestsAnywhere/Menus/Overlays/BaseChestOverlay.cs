@@ -253,9 +253,10 @@ internal abstract class BaseChestOverlay : BaseOverlay, IStorageOverlay
             float topOffset = padding;
             int maxLabelWidth = (int)new[] { locationLabel, nameLabel, categoryLabel, orderLabel }.Select(p => font.MeasureString(p).X).Max();
             bool isAndroid = Constants.TargetPlatform == GamePlatform.Android;
+            int lineHeight = (int)font.MeasureString("X").Y;
             int rowSpacing = isAndroid
-                ? (int)(font.LineHeight * 1.6f)  // larger gaps between rows for touch
-                : (int)(font.LineHeight * 1.1f);
+                ? (int)(lineHeight * 1.6f)  // larger gaps between rows for touch
+                : (int)(lineHeight * 1.1f);
 
             // background
             batch.DrawMenuBackground(new Rectangle(bounds.X, bounds.Y, bounds.Width, bounds.Height));
