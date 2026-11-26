@@ -454,6 +454,12 @@ internal abstract class BaseChestOverlay : BaseOverlay, IStorageOverlay
                 if (this.EscapeKeybind.JustPressed())
                     this.ActiveElement = Element.Menu;
 
+                // On Android, text input arrives via the system IME (opened by Game1.showTextEntry),
+                // not as SMAPI key events. Suppressing all keys here would swallow IME-routed input
+                // and break the on-screen keyboard. Skip suppression on Android entirely.
+                if (Constants.TargetPlatform == GamePlatform.Android)
+                    break;
+
                 // always suppress in this context, since we'll handle text input ourselves
                 if (e.Pressed.Any())
                 {
@@ -520,7 +526,11 @@ internal abstract class BaseChestOverlay : BaseOverlay, IStorageOverlay
                 return true;
 
             case Element.EditForm:
-                return true; // suppress input
+                // On Android touch scrolling should work inside the edit form dropdowns.
+                // Let the event fall through rather than suppressing it.
+                if (Constants.TargetPlatform == GamePlatform.Android)
+                    return false;
+                return true; // suppress scroll on PC while edit form is open
 
             default:
                 return false;
